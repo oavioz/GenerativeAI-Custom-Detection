@@ -1,11 +1,13 @@
-import os, shutil, time
+import os, shutil, random, torch, clip, openai
 import src.extract_images as extract_images
-import torch, clip
 from PIL import Image
-import random
+
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, preprocess = clip.load("ViT-B/32", device=device)
+
+#This key has a limit of 10$, may not be enough for production. 
+openai.api_key = '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' 
 
 
 '''Uses openAI's CLIP to predict the labels'''
@@ -31,6 +33,7 @@ Splits the video to frames, runs "predict_photo" and avarage the results.
 @TODO: maybe, average isn't the best option, since information that appears in a single frame 
 won't affect as much. *maybe l_2 norm is better 
 '''
+#At the moment, this function has no use. 
 def predict_video(path, possible_classes : list) -> dict:
     assert os.path.isfile(path)
     mid = "__mid_images" + str(random.randint(0, 1e9)) 
@@ -52,3 +55,15 @@ def predict_video(path, possible_classes : list) -> dict:
         detected[key] /= counter
 
     return detected
+
+
+'''
+Sends a question to chatgpt and returns the response. 
+'''
+def query_text(que : str) -> str: 
+    response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": que}],
+            temperature=0.8)
+
+    return response
