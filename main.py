@@ -29,11 +29,6 @@ def index():
     os.remove(filepath)
     return res 
 
-
-@app.route("/recognize/videos/", methods=['POST'])
-def index(): 
-    pass 
-
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=54362)
 
