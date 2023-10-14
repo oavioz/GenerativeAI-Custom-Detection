@@ -1,21 +1,20 @@
-## Setup 
-Install tourch and openai clip, according to the instructions here: 
-https://github.com/openai/CLIP
-
+## Project tree 
 .
 ├── main.py
-├── readme.md 
-├── src/
-│   ├── AI_detect.py 
-│   └── extract_images.py
-└── test/
-    ├── test.py
-    ├── documents/
-    │   └── ##images and videos for testing
-    └── uploads/
-        └── ##files from users 
+├── README.md
+├── requirements.txt
+├── src
+│   ├── AI_detect.py
+│   └── extract_images.py
+└── tests
+    ├── documents
+    │   ├── "Files and videos for testing"
+    ├── poc.py
+    ├── simple_test.py
+    ├── test_potatoes.py
+    └── test_text.py
 
 
 ## Running: 
-python3 main.py 
+python3 backand.py 
 -- after the setup was completed. 

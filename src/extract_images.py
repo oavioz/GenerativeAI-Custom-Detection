@@ -1,8 +1,5 @@
-import cv2, os  
+import cv2, os, shutil  
 
-'''Given a video, write every frame as jpg to tar_folder'''
-import cv2
-import os
 
 #When fast=True, only  1/FAST_PAR frames are proccessed. 
 FAST_PAR = 15 
@@ -36,7 +33,7 @@ def save_all_frames(video_path, dir_path, basename, ext='jpg', fast = False):
 
 
 '''recursive look for videos from a folder
-returns a list of all the videos (path, string)'''
+returns a list of all the files (path, string)'''
 def find_files(src_folder : str) -> list: 
     if os.path.isfile(src_folder): 
         return [src_folder]
@@ -64,11 +61,19 @@ def find_path(vid : str):
     return dir, filename
 
 
-def main(basedir = "extracted", vid_dir = "videos", fast=False): 
+'''extract videos to frames, doesn't modify pictures'''
+def main(basedir : str, vid_dir : str, fast=False) -> None: 
     found_vids = find_files(vid_dir)
     for vid in found_vids: 
         dir, filename = find_path(vid)
-        save_all_frames(vid, os.path.join(basedir, dir), filename, 'jpg', fast) 
+
+        if vid.split(".")[-1] in ["mp4", "mov", "wmv", "avi"]: #Common movies formats
+            save_all_frames(vid, os.path.join(basedir, dir), filename, 'jpg', fast) 
+        
+        elif vid.split(".")[-1] in ["jpeg", "png", "jpg"]: 
+            if not os.path.exists(os.path.join(basedir, dir)): 
+                os.makedirs(os.path.join(basedir, dir)) 
+            shutil.copyfile(vid, os.path.join(basedir, dir, filename))
 
 
 '''will convert all the videos to images'''
