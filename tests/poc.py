@@ -25,7 +25,7 @@ def find_files(src_folder : str) -> list:
     return found
 
 
-def send_request_singleTXT(lookdir : str, possible_classes, url = "http://127.0.0.1:54362/recognize/images/"):    
+def send_request_singleTXT(lookdir : str, possible_classes, url = f"http://127.0.0.1:54362/recognize/images/"):    
     files_mapping = {} 
     found_files = find_files(lookdir)
     for img_path in found_files: 
@@ -59,6 +59,6 @@ def send_request_singleTXT(lookdir : str, possible_classes, url = "http://127.0.
             
 
 if __name__ == '__main__':
-    send_request_singleTXT("documents", ["A potato leaf of early blight"])
+    send_request_singleTXT("documents", ["A picture of a potato with pest and disease"])
 
 
