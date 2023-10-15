@@ -1,23 +1,14 @@
-## Project tree 
-.
-├── main.py
-├── README.md
-├── requirements.txt
-├── src
-│   ├── AI_detect.py
-│   └── extract_images.py
-└── tests
-    ├── documents
-    │   ├── "Files and videos for testing"
-    ├── poc.py
-    ├── simple_test.py
-    ├── test_potatoes.py
-    └── test_text.py
 
+## Running:
 
-## Running: 
-python3 main.py 
--- after the setup was completed. 
+To run the backend, run: 
+`python3 main.py`
+When the server is up, enter the **tests_and_examples**  folder to run examples... 
 
-Afterwards, You can send the backend queries
-look at tests/poc.py for an example.  
+## The project structure: 
+`main.py` : The backend server 
+`src/AI_detect.py`:  library that analyze text/pictures/videos using AI
+`src/extract_images.py` library for handling files and directories. 
+
+The `main.py` will create the folders "extracted" and "uploads", 
+Will store images (possibly after conversion or frames), call functions from `src/AI_detect.py` and returns the result, after parsing. 

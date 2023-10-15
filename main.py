@@ -3,6 +3,7 @@ import random, os, shutil, base64
 import src.AI_detect as AI_detect
 import src.extract_images as extract_images
 
+
 app = Flask(__name__)
 
 
