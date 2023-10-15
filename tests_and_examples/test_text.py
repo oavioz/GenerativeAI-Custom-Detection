@@ -9,7 +9,7 @@ def send_request(que : str) -> None:
     url = "http://127.0.0.1:54362/query/chatgpt/"
 
     response = requests.get(url=url, params={"query" : que})
-    print(response)
+    print(response.text)
             
 if __name__ == '__main__':
     send_request("How old is Donald Trump?")
