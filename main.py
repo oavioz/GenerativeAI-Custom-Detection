@@ -108,8 +108,8 @@ def query_chatgpt():
     if que is None: 
         return jsonify(error="Missing Query"), 400 
 
-    if len(que) > 100: 
-        return jsonify(error="Query exceeds maximal length (100)"), 400    
+    if len(que) > 400: 
+        return jsonify(error="Query exceeds maximal length (400)"), 400    
     
     ans = AI_detect.query_text(que)
     return ans
