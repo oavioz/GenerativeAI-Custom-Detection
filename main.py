@@ -40,6 +40,7 @@ def recognize_images_post():
 '''
 Instead of sending the file, sends a path to a directory 
 @TODO: support url instead of path, or add a module that downloads the directory... 
+When only one class is received, the code sends a probability distribution on the images instead. 
 '''
 @app.route("/recognize/images/", methods=['GET'])
 def recognize_images_get():
@@ -57,10 +58,15 @@ def recognize_images_get():
 
     #Runs the model on every image, and returns a json
     #The json is of the form {image_name : prediction}
-    images_path = extract_images.find_files(basedir)
+    image_paths = extract_images.find_files(basedir)
     ret = {} 
+    
+    if len(possible_classes) == 1: 
+        ret = AI_detect.predict_text(image_paths, possible_classes[0])
+        shutil.rmtree(basedir)
+        return ret 
 
-    for img in images_path: 
+    for img in image_paths: 
         ret[img[len(basedir):]] = AI_detect.predict_photo(img, possible_classes)
 
     shutil.rmtree(basedir)

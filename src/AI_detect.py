@@ -10,7 +10,8 @@ model, preprocess = clip.load("ViT-B/32", device=device)
 openai.api_key = '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' 
 
 
-'''Uses openAI's CLIP to predict the labels'''
+'''Uses openAI's CLIP to predict the labels
+Classifier'''
 def predict_photo(path : str, possible_classes : list) -> dict: 
     assert os.path.isfile(path)
     image = preprocess(Image.open(path)).unsqueeze(0).to(device)
@@ -55,6 +56,28 @@ def predict_video(path, possible_classes : list) -> dict:
         detected[key] /= counter
 
     return detected
+
+
+'''
+Receives a batch of images and a text query, and returns for every picture the prob that it corresponds to the query. 
+'''
+def predict_text(image_paths : list, text : str) -> dict: 
+    assert all(os.path.isfile(path) for path in image_paths) 
+    
+    images = torch.stack([preprocess(Image.open(path)).to(device) for path in image_paths])
+    text = clip.tokenize(text).to(device)
+    
+
+    with torch.no_grad():
+        image_features = model.encode_image(images) 
+        text_features = model.encode_text(text)
+        logits_per_image, logits_per_text = model(images, text)
+        probs = logits_per_text.softmax(dim=-1).cpu().numpy()
+
+    ret = {} 
+    for i in range(len(images)): 
+        ret[image_paths[i]] = float(probs[0][i])
+    return ret  
 
 
 '''
