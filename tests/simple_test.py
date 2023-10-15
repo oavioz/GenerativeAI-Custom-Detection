@@ -9,8 +9,10 @@ def send_request(filename : str, possible_classes = tattoo_or_running):
     # Send the image and classes using POST request and print the result. 
     with open(filename, "rb") as pic:  
         response = requests.post(url, data={
-                "classes" : possible_classes}, 
-                files={"file" : pic})
+                "classes" : possible_classes,
+                "filenames" : [filename], 
+                "fast" : "true"},  
+                files={filename : pic})
         print(response.text)
             
 if __name__ == '__main__':

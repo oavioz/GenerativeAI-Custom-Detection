@@ -40,7 +40,7 @@ def recognize_images_post():
         os.makedirs(basedir)
     extract_images.main(basedir, stored, (request.form.get("fast").lower() == 'true'))
     image_paths = extract_images.find_files(basedir)
-    
+
     #Run the model and returns the results. 
     ret = {} 
     if 'classes' not in request.form:
@@ -49,13 +49,13 @@ def recognize_images_post():
         return jsonify(error="Missing classification classes"), 400
     
     if len(request.form.getlist("classes")) == 1: 
-        ret = AI_detect.predict_text(image_paths, request.form.getlist("classes"))
+        ret = AI_detect.predict_text(image_paths, request.form.getlist("classes"), len(basedir) + len(stored) + 1)
         shutil.rmtree(stored)
         shutil.rmtree(basedir)
         return ret 
 
     for img in image_paths: 
-        ret[img[len(basedir):]] = AI_detect.predict_photo(img, request.form.getlist("classes"))
+        ret[img[len(basedir) + len(stored) + 1:]] = AI_detect.predict_photo(img, request.form.getlist("classes"))
 
     shutil.rmtree(stored)
     shutil.rmtree(basedir)
@@ -87,7 +87,7 @@ def recognize_images_get():
     ret = {} 
     
     if len(possible_classes) == 1: 
-        ret = AI_detect.predict_text(image_paths, possible_classes[0])
+        ret = AI_detect.predict_text(image_paths, possible_classes[0], len(basedir))
         shutil.rmtree(basedir)
         return ret 
 

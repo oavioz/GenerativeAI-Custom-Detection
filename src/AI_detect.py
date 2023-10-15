@@ -12,7 +12,7 @@ openai.api_key = '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'
 
 '''Uses openAI's CLIP to predict the labels
 Classifier'''
-def predict_photo(path : str, possible_classes : list) -> dict: 
+def predict_photo(path : str, possible_classes : list) -> dict:
     assert os.path.isfile(path)
     image = preprocess(Image.open(path)).unsqueeze(0).to(device)
     text = clip.tokenize(possible_classes).to(device)
@@ -61,7 +61,7 @@ def predict_video(path, possible_classes : list) -> dict:
 '''
 Receives a batch of images and a text query, and returns for every picture the prob that it corresponds to the query. 
 '''
-def predict_text(image_paths : list, text : str) -> dict: 
+def predict_text(image_paths : list, text : str, rm = 0) -> dict: 
     assert all(os.path.isfile(path) for path in image_paths) 
     
     images = torch.stack([preprocess(Image.open(path)).to(device) for path in image_paths])
@@ -76,7 +76,7 @@ def predict_text(image_paths : list, text : str) -> dict:
 
     ret = {} 
     for i in range(len(images)): 
-        ret[image_paths[i]] = float(probs[0][i])
+        ret[image_paths[i][rm:]] = float(probs[0][i])
     return ret  
 
 
