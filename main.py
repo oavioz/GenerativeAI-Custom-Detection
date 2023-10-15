@@ -50,13 +50,13 @@ def recognize_images_post():
         return jsonify(error="Missing classification classes"), 400
     
     if len(request.form.getlist("classes")) == 1: 
-        ret = AI_detect.predict_text(image_paths, request.form.getlist("classes"), len(basedir) + len(stored) + 1)
+        ret = AI_detect.predict_text(image_paths, request.form.getlist("classes"), len(basedir) + len(stored) + 2)
         shutil.rmtree(stored)
         shutil.rmtree(basedir)
         return ret 
 
     for img in image_paths: 
-        ret[img[len(basedir) + len(stored) + 1:]] = AI_detect.predict_photo(img, request.form.getlist("classes"))
+        ret[img[len(basedir) + len(stored) + 2:]] = AI_detect.predict_photo(img, request.form.getlist("classes"))
 
     shutil.rmtree(stored)
     shutil.rmtree(basedir)
@@ -88,12 +88,12 @@ def recognize_images_get():
     ret = {} 
     
     if len(possible_classes) == 1: 
-        ret = AI_detect.predict_text(image_paths, possible_classes[0], len(basedir))
+        ret = AI_detect.predict_text(image_paths, possible_classes[0], len(basedir) + 1)
         shutil.rmtree(basedir)
         return ret 
 
     for img in image_paths: 
-        ret[img[len(basedir):]] = AI_detect.predict_photo(img, possible_classes)
+        ret[img[len(basedir) + 1:]] = AI_detect.predict_photo(img, possible_classes)
 
     shutil.rmtree(basedir)
     return ret 

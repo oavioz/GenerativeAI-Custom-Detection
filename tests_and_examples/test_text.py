@@ -12,5 +12,5 @@ def send_request(que : str) -> None:
     print(response.text)
             
 if __name__ == '__main__':
-    send_request("How old is Donald Trump?")
+    send_request("Please explain the treatment proccess for sunflower gray mold, consider possible pesticide options")
 
