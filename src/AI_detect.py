@@ -4,7 +4,7 @@ from PIL import Image
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model, preprocess = clip.load("ViT-B/32", device=device)
+model, preprocess = clip.load("ViT-B/32", device=device) #@TODO compare models
 
 #This key has a limit of 10$, may not be enough for production. 
 openai.api_key = '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' 

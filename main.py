@@ -1,9 +1,10 @@
 from flask import Flask, jsonify, request
-import random, os, shutil
+import random, os, shutil, base64
 import src.AI_detect as AI_detect
 import src.extract_images as extract_images
 
 app = Flask(__name__)
+
 
 '''
 Receives an image using a post request, runs the model on it, and returns the result. 
@@ -11,30 +12,54 @@ It also receives the classes for classification.
 '''
 @app.route("/recognize/images/", methods=['POST'])
 def recognize_images_post():
-    if 'file' not in request.files:
-        return jsonify(error="No file part"), 400
+    filenames = request.form.getlist("filenames")
+
+    if len(filenames) == 0:
+        return jsonify(error="No files found"), 400
     
-    file = request.files['file']
+    if any(fname not in request.files for fname in filenames): 
+        return jsonify(error="Files and filenames doesn't match"), 400 
     
-    if file.filename == '':
+    
+    if any(request.files[fname] == '' for fname in filenames):
         return jsonify(error="No selected file"), 400
     
-    #Otherwise, the server collapses when uploads doesn't exists 
-    if not os.path.exists("uploads"): 
-        os.makedirs("uploads")
-    
     # save the file
-    filename = str(random.randint(0, 1e9)) + file.filename
-    filepath = os.path.join("uploads", filename)
-    file.save(filepath)
-
-    #predict and return the result
-    if 'classes' not in request.form: 
+    stored = os.path.join("uploads", str(random.randint(0, 1e9)))
+    os.makedirs(stored)
+    
+    for fname in filenames: 
+        filepath = os.path.join(stored, fname)
+        if not os.path.exists(os.sep.join(filepath.split(os.sep)[:-1])): 
+            os.makedirs(os.sep.join(filepath.split(os.sep)[:-1]))
+        request.files[fname].save(filepath)
+    
+    #Convert to images and find all files 
+    basedir = os.path.join("extracted", str(random.randint(0, 1e9)))
+    if not os.path.exists(basedir): 
+        os.makedirs(basedir)
+    extract_images.main(basedir, stored, (request.form.get("fast").lower() == 'true'))
+    image_paths = extract_images.find_files(basedir)
+    
+    #Run the model and returns the results. 
+    ret = {} 
+    if 'classes' not in request.form:
+        shutil.rmtree(stored)
+        shutil.rmtree(basedir) 
         return jsonify(error="Missing classification classes"), 400
     
-    res = AI_detect.predict_photo(filepath, request.form.getlist("classes"))
-    os.remove(filepath)
-    return res 
+    if len(request.form.getlist("classes")) == 1: 
+        ret = AI_detect.predict_text(image_paths, request.form.getlist("classes"))
+        shutil.rmtree(stored)
+        shutil.rmtree(basedir)
+        return ret 
+
+    for img in image_paths: 
+        ret[img[len(basedir):]] = AI_detect.predict_photo(img, request.form.getlist("classes"))
+
+    shutil.rmtree(stored)
+    shutil.rmtree(basedir)
+    return ret 
 
 
 '''

@@ -16,5 +16,8 @@
 
 
 ## Running: 
-python3 backand.py 
+python3 main.py 
 -- after the setup was completed. 
+
+Afterwards, You can send the backend queries
+look at tests/poc.py for an example.  
