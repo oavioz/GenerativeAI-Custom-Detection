@@ -1,6 +1,6 @@
 import requests, os, json, sys, shutil 
 
-SERVER_ADDR = f"https://129.159.136.173/"
+SERVER_ADDR = f"https://129.159.136.173:54362/"
 LOCAL_ADDR = f"https://127.0.0.1:54362/"
 
 '''

@@ -44,6 +44,7 @@ def send_request(lookdir : str, possible_classes, url = "http://127.0.0.1:54362/
             files=files_mapping)
     
     return response.text
+
             
 if __name__ == '__main__':
     possible_classes = ["sunflower leaf with Drowny Mildew disease", 

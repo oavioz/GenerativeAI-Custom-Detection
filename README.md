@@ -21,3 +21,32 @@ Run:
 `aitool <parent directory>  <string to search>  <dest directory>`
 It is recommended to use "sorted_files" as a prefix for dest-directory
 At the moment, videos are transformed to frames. 
+
+## HTTP request: 
+using python requests: 
+
+response = requests.post(url, data={
+        "classes" : possible_classes, 
+        "fast" : "true",
+        "filenames" : found_files}, 
+        files=files_mapping, verify=False) 
+
+"classes":  a list of the classes you want CLIP to classify
+"fast": by default false, if set to true, the analysis on videos is done every 15 frames, 
+which is faster but may lead to data loss. 
+
+"filanames" : a list of all the filenames
+"files" all the files you want to transfer, a dictionary in the following format: 
+{"filename" : file}
+
+**example**: 
+def send_request(filename : str, possible_classes, url : str):
+    # Define the target URL
+    # Send the image and classes using POST request and print the result. 
+    with open(filename, "rb") as pic:  
+        response = requests.post(url, data={
+                "classes" : possible_classes,
+                "fast" : "false",
+                'filenames' : [filename]}, 
+                files={filename : pic})
+        print(response.text)
