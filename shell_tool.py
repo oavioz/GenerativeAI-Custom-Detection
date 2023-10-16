@@ -1,5 +1,7 @@
 import requests, os, json, sys, shutil 
 
+SERVER_ADDR = f"https://129.159.136.173/"
+LOCAL_ADDR = f"https://127.0.0.1:54362/"
 
 '''
 Same as src.extract_images.find_files(...)
@@ -25,7 +27,7 @@ def find_files(src_folder : str) -> list:
     return found
 
 
-def send_request_singleTXT(lookdir : str, possible_classes, url = f"http://127.0.0.1:54362/recognize/images/"):    
+def send_request_singleTXT(lookdir : str, possible_classes, url):    
     files_mapping = {} 
     found_files = find_files(lookdir)
 
@@ -33,21 +35,25 @@ def send_request_singleTXT(lookdir : str, possible_classes, url = f"http://127.0
         files_mapping[img_path] = open(img_path, "rb")
 
     # Send the image and classes using GET request and print the result. 
+    response =  None 
     try: 
         response = requests.post(url, data={
                 "classes" : possible_classes, 
                 "fast" : "true",
                 "filenames" : found_files}, 
-                files=files_mapping)
+                files=files_mapping, verify=False) #Not very good, @TODO: change to keys... 
     
-    except: 
-        print("UNKNOWN FAILURE")
+    except Exception as e: 
+        print(e)
     
     finally: 
         for f in files_mapping.values(): 
             f.close() 
 
-    #Parse the result.
+    if response is None: 
+        exit(-1)
+
+    #Parse the results 
     ret = json.loads(response.text)
     ans = [] 
     for key in ret.keys(): 
@@ -71,7 +77,7 @@ if __name__ == '__main__':
         print("Usage: <parent directory>  <string to search>  <dest directory>")
         exit(-1)
 
-    ans = send_request_singleTXT(sys.argv[1], [sys.argv[2]])
+    ans = send_request_singleTXT(sys.argv[1], [sys.argv[2]], SERVER_ADDR + "recognize/images/")
 
     #Save to the specified folder. 
     if not os.path.exists(sys.argv[3]):  

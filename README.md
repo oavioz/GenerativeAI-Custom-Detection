@@ -15,8 +15,9 @@ Will store images (possibly after conversion or frames), call functions from `sr
 
 ## Shell tool 
 shell_tool.py, allows sorting images according to prompts. 
-Before running, add the following alias: 
+Before running, it's recomended to add the following alias (sorry windows): 
 `alias aitool="python3 shell_tool.py`
 Run: 
 `aitool <parent directory>  <string to search>  <dest directory>`
+It is recommended to use "sorted_files" as a prefix for dest-directory
 At the moment, videos are transformed to frames. 

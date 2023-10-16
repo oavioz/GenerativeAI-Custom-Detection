@@ -1,4 +1,10 @@
 *.pyc 
+.uploads
 uploads
+.extracted
 extracted
 tests_and_examples/documents/Sunflower
+
+#Default folder for storing results of shell_tool.py
+sorted_files*
+keys/*

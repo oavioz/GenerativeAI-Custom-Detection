@@ -26,7 +26,7 @@ def recognize_images_post():
         return jsonify(error="No selected file"), 400
     
     # save the file
-    stored = os.path.join("uploads", str(random.randint(0, 1e9)))
+    stored = os.path.join(".uploads", str(random.randint(0, 1e9)))
     os.makedirs(stored)
     
     for fname in filenames: 
@@ -36,7 +36,7 @@ def recognize_images_post():
         request.files[fname].save(filepath)
     
     #Convert to images and find all files 
-    basedir = os.path.join("extracted", str(random.randint(0, 1e9)))
+    basedir = os.path.join(".extracted", str(random.randint(0, 1e9)))
     if not os.path.exists(basedir): 
         os.makedirs(basedir)
     extract_images.main(basedir, stored, (request.form.get("fast").lower() == 'true'))
@@ -78,7 +78,7 @@ def recognize_images_get():
     possible_classes = request.args.getlist("classes")
 
     #Converts everything to images and saves it inside basedir. 
-    basedir = os.path.join("extracted", str(random.randint(0, 1e9)))
+    basedir = os.path.join(".extracted", str(random.randint(0, 1e9)))
     os.makedirs(basedir)
     extract_images.main(basedir, path, fast)
 
@@ -116,5 +116,5 @@ def query_chatgpt():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=54362)
+    app.run(ssl_context=("keys/public.crt", "keys/private.key"), host="0.0.0.0", port=54362)
 
