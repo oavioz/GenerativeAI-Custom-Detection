@@ -40,13 +40,13 @@ which is faster but may lead to data loss.
 {"filename" : file}
 
 **example**: 
-def send_request(filename : str, possible_classes, url : str):\
-    # Define the target URL\
-    # Send the image and classes using POST request and print the result. \
-    with open(filename, "rb") as pic:  \
-        response = requests.post(url, data={\
-                "classes" : possible_classes,\
-                "fast" : "false",\
-                'filenames' : [filename]}, \
-                files={filename : pic})\
-        print(response.text)\
+1. def send_request(filename : str, possible_classes, url : str):\
+2.    # Define the target URL\
+3.    # Send the image and classes using POST request and print the result. \
+4.    with open(filename, "rb") as pic:  \
+5.        response = requests.post(url, data={\
+6.                "classes" : possible_classes,\
+7.                "fast" : "false",\
+8.                'filenames' : [filename]}, \
+9.                files={filename : pic})\
+10.       print(response.text)
