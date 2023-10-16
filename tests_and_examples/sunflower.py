@@ -29,9 +29,9 @@ def find_files(src_folder : str) -> list:
     return found
 
 
-def send_request(lookdir : str, possible_classes, url = "http://127.0.0.1:54362/recognize/images/"):
+def send_request(lookdir : str, possible_classes, url = "https://127.0.0.1:54362/recognize/images/"):
     files_mapping = {} 
-    found_files = find_files(lookdir)[::10]
+    found_files = find_files(lookdir)[::20]
 
     for img_path in found_files: 
         files_mapping[img_path] = open(img_path, "rb")
@@ -41,16 +41,16 @@ def send_request(lookdir : str, possible_classes, url = "http://127.0.0.1:54362/
             "classes" : possible_classes,
             "fast" : "false",
             'filenames' : found_files}, 
-            files=files_mapping)
+            files=files_mapping, verify=False)
     
     return response.text
 
             
 if __name__ == '__main__':
-    possible_classes = ["sunflower leaf with Drowny Mildew disease", 
-                        "sunflower leaf with Gray Mold disease", 
-                        "healthy sunflower or sunflower leaf",
-                        "sunflower leaf with Scars"]
+    possible_classes = ["Sunflower with light green to yellow angular spots on the upper surfaces of leaves", 
+                        "Sunflower with lighting of leaves, petioles, blossoms and stems", 
+                        "Sunflower without any disease", 
+                        "Sunflower with scarring signs"]
     
     #Receives confidence distribution for every image 
     jsn = send_request(os.path.join("documents", "Sunflower"), possible_classes)
@@ -64,22 +64,17 @@ if __name__ == '__main__':
         for i in range(len(possible_classes)): 
             if jsn[key][possible_classes[i]] > jsn[key][possible_classes[best]]: 
                 best = i 
-        
-        if key.find("scar") != -1: #Consider only scaring
-            count[best] += 1         
-    
-    #Find the disease we noticed the most 
-    best = 0
-    for i in range(len(possible_classes)): 
-        if count[i] > count[best]: 
-            best = i
 
-    print("detected: ", possible_classes[best])
+        print(substr[best], ":", jsn[key][possible_classes[best]], ":", key)
+        
+                
+
+
     
     #ask ChatGPT for explanation. 
-    response = requests.get(url="http://127.0.0.1:54362/query/chatgpt/", params={"query" : possible_classes[best] + ". please list the treatment proccess, be specified on pesticise, fertilize, irigation and weather."})
-    response = json.dumps(response.text)
-    print(response)
+    #response = requests.get(url="http://127.0.0.1:54362/query/chatgpt/", params={"query" : possible_classes[best] + ". please list the treatment proccess, be specified on pesticise, fertilize, irigation and weather."})
+    #response = json.dumps(response.text)
+    #print(response)
         
 
 

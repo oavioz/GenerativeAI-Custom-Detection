@@ -9,3 +9,5 @@ liron*
 #Default folder for storing results of shell_tool.py
 sorted_files*
 keys/*
+*.pem
+*.out
