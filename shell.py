@@ -1,6 +1,6 @@
 if __name__ == "__main__": print("Wait while the model is loading...")
 import requests
-import os, json  
+import os, json, shutil
 import src.extract_images as extract_images
 import src.AI_detect as AI_detect
 
@@ -48,12 +48,32 @@ def main():
     for _ in range(count): 
         prompts.append(input("-> "))
 
+    #process the request, run the ai model and return a parsed result.
     ans = proccess_request(basedir, prompts)    
     
+
+    print("Finished processing, move results to a new directory?")
+    move = input("yes/no ")
+    if move.lower().find("yes") != -1: 
+        move = input("dir: ") 
+    else: 
+        move = None 
+    if move is not None and not os.path.exists(move):     
+        os.makedirs(move)
+
+    #While user requests, print a new detection. 
+    count = 0
     for confid, path in ans: 
-        print(round(confid, 8), " : ", path)
+        print(round(confid / ans[0][0], 8), " : ", path, end=" ")
+
+        #to make easier to scp to local
+        if move is not None:
+            shutil.copyfile(path, os.path.join(move, str(count)) + "." + path.split(".")[-1]) 
+            count += 1
+        
         input() 
 
+            
 
 if __name__ == '__main__': 
     main() 
