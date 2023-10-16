@@ -2,16 +2,21 @@ from flask import Flask, jsonify, request
 import random, os, shutil, base64
 import src.AI_detect as AI_detect
 import src.extract_images as extract_images
+from flask_cors import CORS, cross_origin 
 
 
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 
 '''
 Receives an image using a post request, runs the model on it, and returns the result. 
 It also receives the classes for classification. 
 '''
+
 @app.route("/recognize/images/", methods=['POST'])
+@cross_origin()
 def recognize_images_post():
     filenames = request.form.getlist("filenames")
 
@@ -69,6 +74,7 @@ Instead of sending the file, sends a path to a directory
 When only one class is received, the code sends a probability distribution on the images instead. 
 '''
 @app.route("/recognize/images/", methods=['GET'])
+@cross_origin()
 def recognize_images_get():
     path = request.args.get("path")
     if path is None: 
@@ -103,6 +109,7 @@ def recognize_images_get():
 Sends text query to chatgpt 3.5, and returns the result. 
 '''
 @app.route("/query/chatgpt/", methods=['GET'])
+@cross_origin()
 def query_chatgpt(): 
     que = request.args.get("query") 
     if que is None: 
