@@ -40,13 +40,15 @@ which is faster but may lead to data loss.
 {"filename" : file}
 
 **example**: 
+<pre>
 1. def send_request(filename : str, possible_classes, url : str):\
 2.    # Define the target URL\
 3.    # Send the image and classes using POST request and print the result. \
-4.    with open(filename, "rb") as pic:  \
+4.    with open("mold.png", "rb") as pic:  \
 5.        response = requests.post(url, data={\
-6.                "classes" : possible_classes,\
+6.                "classes" : ["A sunflower leaf with gray mold", "A healthy sunflower or sunflower leaf"],\
 7.                "fast" : "false",\
-8.                'filenames' : [filename]}, \
-9.                files={filename : pic})\
+8.                'filenames' : ["mold.png"]}, \
+9.                files={"mold.png" : pic})\
 10.       print(response.text)
+</pre>
