@@ -1,5 +1,5 @@
 import extract_images
-
+import sys 
 
 # -*- coding: utf-8 -*-
 """Open-Vocabulary Image-Classification.ipynb
@@ -129,7 +129,12 @@ class ImageOnlyDataset(VisionDataset):
         return len(self.imgs)
 
 def _save_im_enc(enc, enc_path):
-    torch.save(enc, enc_path)
+    try:
+        torch.save(enc, enc_path)
+    except:
+        print("error path {}".format(enc_path))
+        print(enc)
+        raise
 
 def _parse_im_path(im_path):
     im_name = im_path.split("/")[-1]
@@ -246,14 +251,14 @@ def search_db(args):
         im.show(title="{}:{}".format(idx, score))
 
 cmd_cfg = {
-  'im_dir' : '../tests_and_examples/documents/tests_he/',
-  'enc_dir' : './encs/',
+  'im_dir' : '../../red/imgs/',
+  'enc_dir' : '../../red/encs/',
   'device' : "cuda" if torch.cuda.is_available() else "cpu", 
   'backbone' : "RN50x64",
   'batch_size' : 4,
   'ref_im_path' : None,
   'output_path' : "results.txt",
-  'txt' : "Sunflower"
+  'txt' : "A woman with a cast"
 }
 
 class Struct:
@@ -263,8 +268,23 @@ class Struct:
 def dict_to_class(d):
   return Struct(**d)
 
-CMD = "search" #"search_db"
-if CMD == "build_db":
-  build_db(dict_to_class(cmd_cfg))
-else:
-  search_db(dict_to_class(cmd_cfg))
+#Naive handler 
+def handle_request(type, txt=None): 
+    if type == "build": 
+        build_db(dict_to_class(cmd_cfg))
+    elif type == "search": 
+        if txt is None:
+            print("Search requires another argument") 
+            exit(-1)
+        cmd_cfg['txt'] = txt 
+        search_db(dict_to_class(cmd_cfg))
+    else: 
+        print("Unknown request type")
+        exit(-1)   
+
+
+if __name__ == '__main__': 
+    if len(sys.argv) < 2: 
+        print("Not enough arguments")
+        exit(-1)
+    handle_request(type, sys.argv[1], None if len(sys.argv) == 2 else sys.argv[2])
