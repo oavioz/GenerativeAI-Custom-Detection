@@ -11,3 +11,4 @@ sorted_files*
 keys/*
 *.pem
 *.out
+encs
