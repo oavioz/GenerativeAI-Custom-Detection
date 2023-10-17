@@ -41,19 +41,6 @@ def search_image_in_folder(images_folder = "/home/opc/Nadav/data/blue",
     Returns:
         float: Matched folder/images names, and their correlation scores.
     """
-    ################################################################
-    model_name = "casia-webface" # ["casia-webface", "vggface2"]
-    metric = "l2" # ["l1", "l2", "cosine"]
-    agg = "mean" # ["min", "mean"]
-    topk = 5
-    face_detector_path = "saved_models/yolov8n-face.onnx"
-
-    images_folder = "/home/opc/Nadav/data/blue"
-    #images_folder = "/home/opc/red/blue"
-
-    #search_path = "/home/opc/red/imgs/Screenshot 2023-10-10 at 14.12.48.png"
-    search_path = "/home/opc/red/imgs/noa_3.jpg"
-    ################################################################
 
     face_detector = FaceDetector(face_detector_path)
 
