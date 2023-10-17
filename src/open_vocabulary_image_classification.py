@@ -107,9 +107,10 @@ def custom_collate_fn(batch):
     return tensors, strings
 
 class ImageOnlyDataset(VisionDataset):
-    def __init__(self, root, transforms):
+    def __init__(self, root, transforms, files=None):
         super(ImageOnlyDataset, self).__init__(root, transforms=transforms)
-        self.imgs = extract_images.find_files(root) #All files in subdirectories
+        if files is None: 
+            self.imgs = extract_images.find_files(root) #All files in subdirectories
         self.imgs = [img for img in self.imgs if img.split(".")[-1] in ["jpeg", "jpg", "png"]]
         self.imgs = sorted(self.imgs)
 
@@ -222,7 +223,7 @@ from PIL import Image
 
 def build_db(args):
     preprocess, model = get_im_encoder(args.backbone, args.device)
-    ds = ImageOnlyDataset(args.im_dir, preprocess)
+    ds = ImageOnlyDataset(args.im_dir, preprocess, args.files)
     encode_and_save_imgs(encs_dir=args.enc_dir,ds=ds, model=model, batch_size=args.batch_size, device=args.device)
 
 def search_db(args):
@@ -258,7 +259,8 @@ cmd_cfg = {
   'batch_size' : 4,
   'ref_im_path' : None,
   'output_path' : "results.txt",
-  'txt' : "A woman with a cast"
+  'txt' : "A woman with a cast", 
+  'files' : None 
 }
 
 class Struct:
@@ -269,8 +271,9 @@ def dict_to_class(d):
   return Struct(**d)
 
 #Naive handler 
-def handle_request(type, txt=None): 
+def handle_request(type, txt=None, files=None): 
     if type == "build": 
+        cmd_cfg['files'] = files 
         build_db(dict_to_class(cmd_cfg))
     elif type == "search": 
         if txt is None:
