@@ -236,11 +236,17 @@ def search_db(args):
             break
         score, im_name = sample
         im_path = os.path.join(args.im_dir, im_name)
-        im = Image.open(im_path)
+        
+        #The search is on all the encs directory, problem when you search in different directories and don't change encs.
+        #Probably a bad solution, replace later @TODO
+        try: 
+            im = Image.open(im_path)
+        except: 
+            continue 
         im.show(title="{}:{}".format(idx, score))
 
 cmd_cfg = {
-  'im_dir' : '../tests_and_examples/documents/Sunflower/Sunflower_Downy mildew/',
+  'im_dir' : '../tests_and_examples/documents/tests_he/',
   'enc_dir' : './encs/',
   'device' : "cuda" if torch.cuda.is_available() else "cpu", 
   'backbone' : "RN50x64",
