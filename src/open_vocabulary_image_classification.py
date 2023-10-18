@@ -285,15 +285,28 @@ import os
 import glob
 from PIL import Image
 
+cmd_cfg = {
+  'im_dir' : '/home/ubuntu/red/imgs/',
+  'enc_dir' : '/data/encs/',
+  'device' : "cuda" if torch.cuda.is_available() else "cpu", 
+  'backbone' : "RN50x64",
+  'batch_size' : 4,
+  'ref_im_path' : None,
+  'output_path' : "results.txt",
+  'txt' : "A woman with a cast",
+  'files' : None 
+}
+
+preprocess, model = get_im_encoder(cmd_cfg["backbone"], cmd_cfg["device"])
+clip_model = create_load_resnet_clip_model(cmd_cfg["backbone"], cmd_cfg["device"])
+
+
 def build_db(args):
-    preprocess, model = get_im_encoder(args.backbone, args.device)
-    clip_model = create_load_resnet_clip_model(args.backbone, args.device)
     ds = ImageOnlyDataset(args.im_dir, preprocess, args.files)
     encode_and_save_imgs(encs_dir=args.enc_dir,ds=ds, model=model, clip_model=clip_model, batch_size=args.batch_size, device=args.device)
 
 def search_db(args):
-    preprocess, model = get_id_encoder(backbone=args.backbone, device=args.device)
-
+    
     search_result = search_image(encs_dir=args.enc_dir, preprocess=preprocess,
                                  model=model,
                                  output_path=args.output_path,
@@ -315,18 +328,6 @@ def search_db(args):
         except: 
             continue 
         im.show(title="{}:{}".format(idx, score))
-
-cmd_cfg = {
-  'im_dir' : '/home/ubuntu/red/imgs/',
-  'enc_dir' : '/data/encs/',
-  'device' : "cuda" if torch.cuda.is_available() else "cpu", 
-  'backbone' : "RN50x64",
-  'batch_size' : 4,
-  'ref_im_path' : None,
-  'output_path' : "results.txt",
-  'txt' : "A woman with a cast",
-  'files' : None 
-}
 
 class Struct:
     def __init__(self, **entries):
