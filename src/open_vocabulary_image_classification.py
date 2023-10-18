@@ -198,8 +198,7 @@ def _save_im_enc(enc, enc_path):
         raise
 
 def _parse_im_path(im_path):
-    im_name = im_path.split("/")[-1]
-    return im_name
+    return im_path
 
 def _get_im_enc_path(enc_dir, im_name):
     return os.path.join(enc_dir, im_name + ".pt")
@@ -255,7 +254,7 @@ def _order_images_by_similarity(encs_dir, preprocess, model, device, txt):
     # should be 1 x EMBEDDING_SIZE
     ref_enc = ref_enc / ref_enc.norm()
     scores = []
-    encs_paths = glob.glob(encs_dir + '/*.pt')
+    encs_paths = [f for f in extract_images.find(encs_dir) if f[-3:] == ".pt"] 
     print("Ordering images by similarity...")
     for enc_path in tqdm.tqdm(encs_paths):
         enc = _load_im_enc(enc_path)
@@ -315,8 +314,8 @@ def search_db(args):
         im.show(title="{}:{}".format(idx, score))
 
 cmd_cfg = {
-  'im_dir' : '../../red/imgs/',
-  'enc_dir' : '../../red/encs/',
+  'im_dir' : '/home/ubuntu/red/imgs/',
+  'enc_dir' : '/home/ubuntu/red/encs/',
   'device' : "cuda" if torch.cuda.is_available() else "cpu", 
   'backbone' : "RN50x64",
   'batch_size' : 4,

@@ -1,10 +1,9 @@
 from typing import List
-import json
+import json, os 
 import open_vocabulary_image_classification as ovic
 import extract_images
 
-IMAGE_PATH = '/home/ubuntu/red/imgs/'
-RED_ENC_PATH = '/data/encs/'
+JSON_PATH = 'server_data/info.json'
 PRINT = False
 
 def add_records(rec_list : List[dict]):
@@ -17,8 +16,18 @@ def search_text(text: str):
 
 
 def query_existence(rec : dict):
+    return False 
+
+    if not os.path.exists(JSON_PATH): 
+        print("Unknown location for ")
+        raise Exception 
+    
+    with open(JSON_PATH, "r") as f: 
+        jsn = json.load(f)
+    print(jsn) 
+
     if PRINT: print("found")
-    return True
+
 
 
 def main(): 
