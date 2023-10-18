@@ -201,10 +201,10 @@ def _parse_im_path(im_path):
     return im_path
 
 def _get_im_enc_path(enc_dir, im_name):
-    if not os.path.exists(enc_dir + im_name.split(os.sep)[:-1].join(os.sep)): 
-        os.makedirs(enc_dir + im_name.split(os.sep)[:-1].join(os.sep))
+    if not os.path.exists(enc_dir + os.sep.join(im_name.split(os.sep)[:-1])): 
+        os.makedirs(enc_dir + os.sep.join(im_name.split(os.sep)[:-1]))
     
-    return os.path.join(enc_dir, im_name + ".pt")
+    return enc_dir + os.path.join(enc_dir, im_name + ".pt")
 
 @torch.no_grad()    
 def encode_and_save_imgs(encs_dir, ds, model, clip_model, batch_size, device):
@@ -265,7 +265,7 @@ def _order_images_by_similarity(encs_dir, preprocess, model, device, txt):
         enc = enc / torch.linalg.norm(enc, dim=-1, keepdim=True)
         sim = torch.einsum('ac,bc->b', ref_enc, enc.to(ref_enc.dtype))
         max_sim = torch.max(sim)
-        scores.append((max_sim.cpu().numpy(), enc_path.split("/")[-1][:-3]))
+        scores.append((max_sim.cpu().numpy(), enc_path[len(encs_dir):-3]))
     scores = sorted(scores, key=lambda x: x[0], reverse=True)
     print("Done")
     return scores
@@ -318,7 +318,7 @@ def search_db(args):
 
 cmd_cfg = {
   'im_dir' : '/home/ubuntu/red/imgs/',
-  'enc_dir' : '/home/ubuntu/red/encs/',
+  'enc_dir' : '/data/encs/',
   'device' : "cuda" if torch.cuda.is_available() else "cpu", 
   'backbone' : "RN50x64",
   'batch_size' : 4,
@@ -348,7 +348,7 @@ def handle_request(type, txt=None, files=None):
         search_db(dict_to_class(cmd_cfg))
     else: 
         print("Unknown request type")
-        exit(-1)   
+        exit(-1)
 
 
 if __name__ == '__main__': 
