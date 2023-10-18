@@ -254,7 +254,7 @@ def _order_images_by_similarity(encs_dir, preprocess, model, device, txt):
     # should be 1 x EMBEDDING_SIZE
     ref_enc = ref_enc / ref_enc.norm()
     scores = []
-    encs_paths = [f for f in extract_images.find(encs_dir) if f[-3:] == ".pt"] 
+    encs_paths = [f for f in extract_images.find_files(encs_dir) if f[-3:] == ".pt"] 
     print("Ordering images by similarity...")
     for enc_path in tqdm.tqdm(encs_paths):
         enc = _load_im_enc(enc_path)
