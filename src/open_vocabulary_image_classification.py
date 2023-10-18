@@ -31,6 +31,64 @@ def get_id_encoder(backbone, device):
     return preprocess, model
 
 
+from clip.model import AttentionPool2d
+import numpy as np
+
+
+class AttentionPool2dLoose(AttentionPool2d):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward(self, x):
+        pe = self.positional_embedding[1:]
+        pe_saptio_x = int(np.sqrt(pe.shape[0]))
+        assert pe_saptio_x ** 2 == pe.shape[0], "code assumes pe is created for equal x and y"
+
+        pos_weight = pe.reshape(1, pe_saptio_x, pe_saptio_x, pe.shape[1])
+        pos_weight = pos_weight.permute(0, 3, 1, 2)
+        pos_weight = F.interpolate(pos_weight, size=(x.shape[2], x.shape[3]))
+        pos_weight = pos_weight.flatten(start_dim=2).permute(2, 0, 1)
+        pos_weight = torch.cat([self.positional_embedding[0][None, None, ], pos_weight])
+
+        x = x.to(pe.dtype)
+        x = x.flatten(start_dim=2).permute(2, 0, 1)  # NCHW -> (HW)NC
+        x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)  # (HW+1)NC
+        #x = x + self.positional_embedding[:, None, :].to(x.dtype)  # (HW+1)NC
+        x = x + pos_weight.to(x.dtype)
+
+        x, _ = F.multi_head_attention_forward(
+            query=x[:1], key=x, value=x,
+            embed_dim_to_check=x.shape[-1],
+            num_heads=self.num_heads,
+            q_proj_weight=self.q_proj.weight,
+            k_proj_weight=self.k_proj.weight,
+            v_proj_weight=self.v_proj.weight,
+            in_proj_weight=None,
+            in_proj_bias=torch.cat(
+                [self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
+            bias_k=None,
+            bias_v=None,
+            add_zero_attn=False,
+            dropout_p=0,
+            out_proj_weight=self.c_proj.weight,
+            out_proj_bias=self.c_proj.bias,
+            use_separate_proj_weight=True,
+            training=self.training,
+            need_weights=False
+        )
+        return x.squeeze(0)
+
+def create_load_resnet_clip_model(name, device):
+    model, preprocess = clip.load(name, device=device)
+    embed_dim = model.visual.attnpool.c_proj.in_features
+    new_attnpool = AttentionPool2dLoose(model.visual.input_resolution // 32, embed_dim,
+                                        model.visual.attnpool.num_heads, model.visual.output_dim).cuda(device)
+    new_attnpool.load_state_dict(model.visual.attnpool.state_dict())
+    model.visual.attnpool = new_attnpool
+    model.patch_size = 32
+    return model
+
+
 IM_SIZE = 448 #best resolution for RN50x64
 
 class Dense_Attention_2d(nn.Module):
@@ -107,10 +165,12 @@ def custom_collate_fn(batch):
     return tensors, strings
 
 class ImageOnlyDataset(VisionDataset):
-    def __init__(self, root, transforms, files=None):
+    def __init__(self, root, transforms, files):
         super(ImageOnlyDataset, self).__init__(root, transforms=transforms)
+        self.imgs = files
         if files is None: 
             self.imgs = extract_images.find_files(root) #All files in subdirectories
+        
         self.imgs = [img for img in self.imgs if img.split(".")[-1] in ["jpeg", "jpg", "png"]]
         self.imgs = sorted(self.imgs)
 
@@ -145,13 +205,15 @@ def _get_im_enc_path(enc_dir, im_name):
     return os.path.join(enc_dir, im_name + ".pt")
 
 @torch.no_grad()    
-def encode_and_save_imgs(encs_dir, ds, model, batch_size, device):
+def encode_and_save_imgs(encs_dir, ds, model, clip_model, batch_size, device):
     os.makedirs(encs_dir, exist_ok=True)
     print("Encoding images:")
     dl = DataLoader(dataset=ds, drop_last=False, batch_size=batch_size, shuffle=False, collate_fn=custom_collate_fn, num_workers=4)
     for ims, im_paths in tqdm.tqdm(dl):
         ims = ims.to(device)
         im_encs = model.encode_image(ims)
+        clip_based_encs = clip_model.encode_image(ims).unsqueeze(1) # CLIP produces a single embedding per image
+        im_encs = torch.cat((im_encs, clip_based_encs), dim=1)
         im_names = [_parse_im_path(im_path) for im_path in im_paths]
         enc_paths = [_get_im_enc_path(encs_dir, im_name) for im_name in im_names]
         for im_enc, enc_path in zip(im_encs, enc_paths):
@@ -212,7 +274,7 @@ def search_image(encs_dir, preprocess, model, output_path, device, txt):
     print("Saving results to {}".format(output_path))
     with open(output_path, 'w') as wf:
         for score, im_name in ims_paths_by_sim:
-            wf.write("{}; {}".format(score, im_name))
+            wf.write("{}; {}\n".format(score, im_name))
 
     return ims_paths_by_sim
 
@@ -223,8 +285,9 @@ from PIL import Image
 
 def build_db(args):
     preprocess, model = get_im_encoder(args.backbone, args.device)
+    clip_model = create_load_resnet_clip_model(args.backbone, args.device)
     ds = ImageOnlyDataset(args.im_dir, preprocess, args.files)
-    encode_and_save_imgs(encs_dir=args.enc_dir,ds=ds, model=model, batch_size=args.batch_size, device=args.device)
+    encode_and_save_imgs(encs_dir=args.enc_dir,ds=ds, model=model, clip_model=clip_model, batch_size=args.batch_size, device=args.device)
 
 def search_db(args):
     preprocess, model = get_id_encoder(backbone=args.backbone, device=args.device)
@@ -259,7 +322,7 @@ cmd_cfg = {
   'batch_size' : 4,
   'ref_im_path' : None,
   'output_path' : "results.txt",
-  'txt' : "A woman with a cast", 
+  'txt' : "A woman with a cast",
   'files' : None 
 }
 
@@ -272,8 +335,8 @@ def dict_to_class(d):
 
 #Naive handler 
 def handle_request(type, txt=None, files=None): 
-    if type == "build": 
-        cmd_cfg['files'] = files 
+    if type == "build":
+        cmd_cfg['files'] = files
         build_db(dict_to_class(cmd_cfg))
     elif type == "search": 
         if txt is None:
@@ -290,4 +353,4 @@ if __name__ == '__main__':
     if len(sys.argv) < 2: 
         print("Not enough arguments")
         exit(-1)
-    handle_request(type, sys.argv[1], None if len(sys.argv) == 2 else sys.argv[2])
+    handle_request(sys.argv[1], None if len(sys.argv) == 2 else sys.argv[2])

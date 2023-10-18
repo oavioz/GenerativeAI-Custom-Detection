@@ -22,18 +22,18 @@ def query_existence(rec : dict):
 
 
 def main(): 
-    act = input("action")
-    if act == "bulid": 
-        files = [] 
+    act = input("action ")
+    if act[0] == "b": 
+        rec_list = [] 
         count = int(input("Enter amount of files: ")) 
         for _ in range(count): 
-            files.append({"img_url" : input("->")})
-    add_records(files)
-    
-    if act == "search": 
-        print(str(search_text(input("txt: ")))[:100])
+            rec_list.append({"img_url" : input("->")})
+        add_records(rec_list)
+        print("Done build")
 
-    print("Done!") 
+    if act[0] == "s": 
+        print(str(search_text(input("txt: ")))[:100])
+        print("Done search!") 
 
 if __name__ == "__main__": 
     main() 
