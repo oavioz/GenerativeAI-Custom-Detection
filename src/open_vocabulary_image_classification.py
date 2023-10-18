@@ -201,6 +201,9 @@ def _parse_im_path(im_path):
     return im_path
 
 def _get_im_enc_path(enc_dir, im_name):
+    if not os.path.exists(enc_dir + im_name.split(os.sep)[:-1].join(os.sep)): 
+        os.makedirs(enc_dir + im_name.split(os.sep)[:-1].join(os.sep))
+    
     return os.path.join(enc_dir, im_name + ".pt")
 
 @torch.no_grad()    
