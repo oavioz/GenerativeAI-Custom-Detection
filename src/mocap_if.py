@@ -5,26 +5,30 @@ import extract_images
 
 IMAGE_PATH = '/home/ubuntu/red/imgs/'
 RED_ENC_PATH = '/data/encs/'
+PRINT = False
 
 def add_records(rec_list : List[dict]):
-    print("Building new files...")
+    if PRINT: print("Building new files...")
     ovic.handle_request("build", files=[d['img_url'] for d in rec_list])
 
 def search_text(text: str):
-    print("Searching the text: \"{}\"".format(text)) 
+    if PRINT: print("Searching the text: \"{}\"".format(text)) 
     return ovic.handle_request("search", txt=text)
 
 
 def query_existence(rec : dict):
-    print("found")
+    if PRINT: print("found")
     return True
 
 
 def main(): 
     act = input("action")
     if act == "bulid": 
-        filenames = extract_images.find_files(IMAGE_PATH)
-        add_records({"img_url" : f} for f in filenames) 
+        files = [] 
+        count = int(input("Enter amount of files: ")) 
+        for _ in range(count): 
+            files.append({"img_url" : input("->")})
+    add_records(files)
     
     if act == "search": 
         print(str(search_text(input("txt: ")))[:100])
