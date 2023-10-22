@@ -8,8 +8,8 @@ import random
 
 
 # Replace these with your AWS credentials and S3 bucket information
-aws_access_key_id = 'AKIAUIWGZP2QT3F4LMMY'
-aws_secret_access_key = 'YHiewi4nxlO2EQBEeUwRb9toVwyA5blp+kLFlBoR'
+aws_access_key_id = 'AKIAUIWGZP2QT3F4LMM'
+aws_secret_access_key = 'YHiewi4nxlO2EQBEeUwRb9toVwyA5blp+kLFlBo'
 
 
 s3_uri = 's3://your-s3-bucket/your-object-key'
