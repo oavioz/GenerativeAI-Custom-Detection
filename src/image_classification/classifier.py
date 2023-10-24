@@ -1,8 +1,7 @@
-# In[1]
 import os
+
 os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES'] = '4'
-
 
 # # imports
 
@@ -25,10 +24,10 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from torch.utils.data import ConcatDataset
 import pandas as pd
-from sklearn.metrics import confusion_matrix, average_precision_score, precision_recall_curve, precision_score, recall_score, accuracy_score
+from sklearn.metrics import confusion_matrix, average_precision_score, precision_recall_curve, precision_score, \
+    recall_score, accuracy_score
 import seaborn as sns
 import argparse
-
 
 # # specifics
 
@@ -40,17 +39,16 @@ x_sigma2 = 0.0015
 learn_rate = 0.0002
 betas = (0.99, 0.999)
 num_epochs = 2
-class_certainty_threshold = 0.95  
+class_certainty_threshold = 0.95
 sub_class_certainty_threshold = 0.75
 momentum = 0.9
-step_size =  7
+step_size = 7
 gamma = 0.1
 eveluate = True
 
-#after adding classes
+# after adding classes
 learning_rate_first_layers = 0.001
 learning_rate_final_layer = 0.01
-
 
 # # General
 
@@ -72,11 +70,25 @@ model_dict = {
 
 }
 
-def create_model_instance(model_name):
+
+def create_model_instance(model_name, num_classes):
     if model_name in list(model_dict.keys()):
         print(f"Creating {model_name}")
-        return model_dict.get(model_name.lower())(pretrained=True)
-    
+
+        model = model_dict.get(model_name.lower())(pretrained=True)
+
+        if 'classifier' in model._modules:
+            # Modify the classifier layers for models like VGG
+            num_ftrs = model.classifier[-1].in_features
+            model.classifier[-1] = nn.Linear(num_ftrs, num_classes)
+        elif 'fc' in model._modules:
+            # Modify the fully connected layer for models like AlexNet
+            num_ftrs = model.fc.in_features
+            model.fc = nn.Linear(num_ftrs, num_classes)
+
+        return model
+
+
 def all_models():
     my_models = {key: create_model_instance(key) for key in model_dict.keys()}
     for model_name, model in my_models.items():
@@ -91,6 +103,7 @@ def all_models():
             model.fc = nn.Linear(num_ftrs, len(dataset.main_classes_set.keys()))
 
         model = model.to(device)
+
 
 def rename_file(root, filename):
     base, ext = os.path.splitext(filename)
@@ -109,6 +122,7 @@ def rename_file(root, filename):
         filename = new_filename
     return filename
 
+
 def create_dataset_from_directory(root_directory):
     main_classes = []
     samples = []
@@ -117,30 +131,29 @@ def create_dataset_from_directory(root_directory):
     for root, dirs, files in os.walk(root_directory):
         for filename in files:
             filename = rename_file(root, filename)
-            
+
             relative_path = root.split(os.path.sep)
             main = str(relative_path[-2]) + "_" + str(relative_path[-1])
             if main not in main_classes_dict.keys():
                 main_classes_dict[main] = len(main_classes_dict.keys())
-            
+
             main_classes.append(main_classes_dict[main])
-            
-            samples.append(os.path.join(root, filename))
-                        
-            
+            if root is not None and filename is not None:
+                samples.append(os.path.join(root, filename))
+            else:
+                print(f"{root} or {filename} is None")
+
     return torch.tensor(main_classes), samples, main_classes_dict
 
 
 # Define custom PyTorch dataset
 class CustomDataset(Dataset):
     def __init__(self, data_dir, transform=None, start_inx=0):
-            self.main_class_labels, self.image_paths, self.main_classes_set = create_dataset_from_directory(data_dir)
-            self.transform = transform
-            if start_inx > 0:
-                self.main_class_labels += start_inx
-                self.main_classes_set = {key: value+start_inx for key, value in self.main_classes_set.items()}
-
-
+        self.main_class_labels, self.image_paths, self.main_classes_set = create_dataset_from_directory(data_dir)
+        self.transform = transform
+        if start_inx > 0:
+            self.main_class_labels += start_inx
+            self.main_classes_set = {key: value + start_inx for key, value in self.main_classes_set.items()}
 
     def __len__(self):
         return len(self.image_paths)
@@ -152,12 +165,12 @@ class CustomDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, main_class #, sub_class
-    
+        return image, main_class  # , sub_class
+
     def get_classes_names(self):
         classes = {v: k for k, v in self.main_classes_set.items()}
         return classes
-    
+
     def concat_datasets(self, new_dataset):
         self.main_class_labels = torch.cat((self.main_class_labels, new_dataset.main_class_labels))
         self.image_paths = self.image_paths + new_dataset.image_paths
@@ -170,7 +183,7 @@ class CustomDataset(Dataset):
                 num_new_classes += 1
             else:
                 print(f"Skipping {key} with {val} because it already exists")
-                
+
         return num_new_classes
 
 
@@ -179,7 +192,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, dataset_siz
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-    
+
     # Lists to store training and validation statistics for plotting
     train_loss_history = []
     train_acc_history = []
@@ -190,13 +203,13 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, dataset_siz
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
-        i=0
+        i = 0
         # Each epoch has a training and validation phase
         for phase in ['train', 'valid']:
             if phase == 'train':
                 model.train()  # Set model to training mode
             else:
-                model.eval()   # Set model to evaluate mode
+                model.eval()  # Set model to evaluate mode
 
             running_loss = 0.0
             running_corrects = 0
@@ -276,7 +289,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, dataset_siz
     # load best model weights
     model.load_state_dict(best_model_wts)
     return model
-                
+
 
 def save_model(filename, model_name, state_dict, class_labels):
     # Save the best model weights to a file
@@ -285,30 +298,48 @@ def save_model(filename, model_name, state_dict, class_labels):
                 'num_classes': len(class_labels.keys()),
                 'state_dict': state_dict,
                 'class_labels': class_labels},
-                 filename)
+               filename)
 
     print('best_weights saved')
 
-    return model_ft.state_dict()
 
+def save_layers_except_last(model: nn.Module, model_name: str) -> dict:
+    """
+    Saves the state_dict of all layers in a PyTorch model except for the last fully connected layer.
 
-def save_layers_except_last(model_ft, model_name):
+    Args:
+        model_ft (nn.Module): The PyTorch model to save layers from.
+        model_name (str): The name to use when saving the filtered state_dict.
+
+    Returns:
+        dict: The filtered state_dict containing the weights of all layers except for the last fully connected layer.
+    """
     # Create a new dictionary to hold the state_dict of the layers you want to save
     filtered_state_dict = {}
 
     # Copy the state_dict of the layers you want to save into the new dictionary
-    for layer_name, weights in model_ft.state_dict().items():
-        # print(layer_name)
-        if 'fc' not in layer_name:
-            filtered_state_dict[layer_name] = weights
-        else:
-            print(f"Excluding {layer_name}")
+    if 'classifier' in model._modules:
+        # Modify the classifier layers for models like VGG
+        for layer_name, weights in model.state_dict().items():
+            if 'classifier' not in layer_name:
+                filtered_state_dict[layer_name] = weights
+            else:
+                print(f"Excluding {layer_name}")
+
+    elif 'fc' in model._modules:
+        # Modify the fully connected layer for models like AlexNet
+        for layer_name, weights in model_ft.state_dict().items():
+            if 'fc' not in layer_name:
+                filtered_state_dict[layer_name] = weights
+            else:
+                print(f"Excluding {layer_name}")
 
     # Save the filtered state_dict to a file
     torch.save(filtered_state_dict, model_name + 'best_weights_except_last.pth')
     print('best_weights_except_last saved')
 
     return filtered_state_dict
+
 
 def evaluate_model_with_limited_misclassified(model, dataloader, criterion, device, class_labels):
     model.eval()
@@ -320,7 +351,7 @@ def evaluate_model_with_limited_misclassified(model, dataloader, criterion, devi
     actuals = []
     all_images = []  # To store the images
     misclassified_images = []  # To store misclassified images
-    max_misclassified=9
+    max_misclassified = 9
 
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc='Evaluation Progress') as pbar:
@@ -386,14 +417,15 @@ def evaluate_model_with_limited_misclassified(model, dataloader, criterion, devi
     plt.tight_layout()
     plt.show()
 
-    data = [{'Class': label, 'Precision': precision, 'Recall': recall} for label, precision, recall in zip(class_labels, precision_per_class, recall_per_class)]
+    data = [{'Class': label, 'Precision': precision, 'Recall': recall} for label, precision, recall in
+            zip(class_labels, precision_per_class, recall_per_class)]
 
     df = pd.DataFrame(data)
 
     print(df)
-    
+
     # Plot samples from misclassified images
-    rows,cols = 3,3
+    rows, cols = 3, 3
     fig, axes = plt.subplots(rows, cols, figsize=(12, 12))
     fig.suptitle('Model Test Misclassified Results', fontsize=16)
 
@@ -404,14 +436,15 @@ def evaluate_model_with_limited_misclassified(model, dataloader, criterion, devi
         ax = axes[i // 3, i % 3]
         ax.imshow(image.permute(1, 2, 0))  # Assuming images are in the format (C, H, W)
         ax.set_title(f"Pred: {class_labels[pred]}\nActual: {class_labels[actual]}\n"
-                    f"Certainty: {certainty:.2f}")
+                     f"Certainty: {certainty:.2f}")
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.show()
 
+
 def predict_single_image(model, image_path, device, classes_names):
     model.eval()
-    
+
     # Load the image and apply the same transformations as in your dataloader
     transform = transforms.Compose([
         transforms.Resize(256),
@@ -419,10 +452,10 @@ def predict_single_image(model, image_path, device, classes_names):
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
-    
+
     image = Image.open(image_path)
     image = transform(image).unsqueeze(0).to(device)  # Add batch dimension
-    
+
     with torch.no_grad():
         output = model(image)
         probabilities = torch.nn.functional.softmax(output, dim=1)
@@ -431,17 +464,93 @@ def predict_single_image(model, image_path, device, classes_names):
         label = classes_names[prediction.item()]
 
     print(f"Predicted Label: {label}, Certainty: {certainty}")
-    
+
     return label, certainty
 
+
+def modify_num_of_classes(new_model, num_new_classes, old_model=None):
+    num_classes = num_new_classes
+    if 'classifier' in new_model._modules:
+        if old_model:
+            num_classes += old_model.classifier[-1].out_features
+        # Modify the classifier layers for models like VGG
+        num_ftrs = new_model.classifier[-1].in_features
+        new_model.classifier[-1] = nn.Linear(num_ftrs, num_classes)
+    elif 'fc' in new_model._modules:
+        if old_model:
+            num_classes += old_model.fc.out_features
+        # Modify the fully connected layer for models like AlexNet
+        num_ftrs = new_model.fc.in_features
+        new_model.fc = nn.Linear(num_ftrs, old_model.fc.out_features + num_classes)
+    else:
+        print("Model not supported")
+        exit()
+
+    return new_model
+
+
+def add_new_classes_to_pretrained_model(old_dataset, old_model, new_data_dir, criterion, transform, scheduler,
+                                        learning_rate_first_layers=0,
+                                        learning_rate_final_layer=0.01, num_epochs=num_epochs):
+    # prepare new datasets and dataloaders
+
+    new_class_dataset = CustomDataset(new_data_dir, transform=transform,
+                                      start_inx=len(old_dataset.main_classes_set.keys()))
+    print(f'{len(new_class_dataset)} samples in the new dataset')
+
+    own_concat_dataset = copy.copy(old_dataset)
+    num_new_classes = own_concat_dataset.concat_datasets(new_class_dataset)
+    print(f'{num_new_classes} new classes added to the dataset')
+
+    total_size = len(own_concat_dataset)
+    train_size = int(0.7 * total_size)
+    val_size = int(0.15 * total_size)
+    test_size = total_size - train_size - val_size
+
+    own_concat_train_data, own_concat_val_data, own_concat_test_data = random_split(own_concat_dataset,
+                                                                                    [train_size, val_size, test_size])
+    own_concat_dataset_ds = {'train': own_concat_train_data, 'valid': own_concat_val_data, 'test': own_concat_test_data}
+    own_concat_dls = {key: DataLoader(own_concat_dataset_ds[key], batch_size=batch_size, shuffle=True) for key in
+                      own_concat_dataset_ds.keys()}
+    own_concat_class_dataset_sizes = {
+        'train': len(own_concat_dataset_ds['train']),
+        'valid': len(own_concat_dataset_ds['valid'])
+    }
+
+    new_model = copy.deepcopy(old_model)
+    new_model = modify_num_of_classes(new_model, num_new_classes, old_model)
+
+    new_model.to(device)
+
+    first_layers_params = []
+    final_layer_params = []
+
+    for name, param in new_model.named_parameters():
+        if 'fc' not in name:
+            first_layers_params.append(param)
+        else:
+            final_layer_params.append(param)
+
+    # Create separate parameter groups with different learning rates
+    param_groups = [
+        {'params': first_layers_params, 'lr': learning_rate_first_layers},
+        {'params': final_layer_params, 'lr': learning_rate_final_layer}
+    ]
+
+    add_class_optimizer = optim.AdamW(param_groups, lr=0.001, weight_decay=0.01)
+    own_concat_dataset_model = train_model(new_model, criterion, add_class_optimizer, scheduler,
+                                           own_concat_dls, own_concat_class_dataset_sizes,
+                                           device, num_epochs=num_epochs)
+
+    return own_concat_dataset_model, own_concat_dls, own_concat_dataset
 
 
 if __name__ == "__main__":
     # # Parse command line arguments
-    
+
     parser = argparse.ArgumentParser(description="Your script description")
-    parser.add_argument("--train", type=bool, default=False, help="Train")
-    parser.add_argument("--add_classes", type=bool, default=False, help="Add new classes")
+    # parser.add_argument("--train", type=bool, default=False, help="Train")
+    # parser.add_argument("--add_classes", type=bool, default=False, help="Add new classes")
     parser.add_argument("--predict", type=str, help="Predict")
 
     parser.add_argument("--retrain", type=bool, default=False, help="Retrain the model")
@@ -450,11 +559,9 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="resnet18", help="Model type")
     parser.add_argument("--load_model", type=str, help="Load weights")
     parser.add_argument("--save_weights", type=bool, default=False, help="Save weights")
-    
+
     parser.add_argument("--evaluate", type=bool, default=False, help="Evaluate")
     parser.add_argument("--add_classes_dir", type=str, help="Add new classes")
-    
-
 
     args = parser.parse_args()
 
@@ -468,7 +575,7 @@ if __name__ == "__main__":
     eveluate = args.evaluate
     add_classes_dir = args.add_classes_dir
     load_model = args.load_model
-    
+
     # datasets and loaders
 
     # ## prepare labels
@@ -477,11 +584,9 @@ if __name__ == "__main__":
         print("Please provide a data directory")
         exit()
 
-
     # ## datasets
 
     if DATA_DIR_PATH:
-
         # Define data transformations including data augmentation
         transform = transforms.Compose([
             transforms.ToPILImage(),
@@ -492,7 +597,6 @@ if __name__ == "__main__":
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-
 
         # Create the custom dataset
         dataset = CustomDataset(DATA_DIR_PATH, transform=transform)
@@ -506,10 +610,9 @@ if __name__ == "__main__":
         train_data, val_data, test_data = random_split(dataset, [train_size, val_size, test_size])
         ds = {'train': train_data, 'valid': val_data, 'test': test_data}
 
-
         # ## data loaders
 
-        dataloaders = {key: DataLoader(ds[key], batch_size=batch_size, shuffle=True) for key in ds.keys()} 
+        dataloaders = {key: DataLoader(ds[key], batch_size=batch_size, shuffle=True) for key in ds.keys()}
         dataset_sizes = {
             'train': len(train_data),
             'valid': len(val_data)
@@ -530,16 +633,8 @@ if __name__ == "__main__":
     else:
         print("Please provide a data directory or a model to load")
 
-    model_ft = create_model_instance(model_name) 
-    if 'classifier' in model_ft._modules:
-                    # Modify the classifier layers for models like VGG
-                    num_ftrs = model_ft.classifier[-1].in_features
-                    model_ft.classifier[-1] = nn.Linear(num_ftrs, num_classes)
-    elif 'fc' in model_ft._modules:
-                    # Modify the fully connected layer for models like AlexNet
-                    num_ftrs = model_ft.fc.in_features
-                    model_ft.fc = nn.Linear(num_ftrs, num_classes)
-    
+    model_ft = create_model_instance(model_name, num_classes)
+
     if load_model:
         model_ft.load_state_dict(model_state_dict)
 
@@ -550,42 +645,30 @@ if __name__ == "__main__":
         predict_single_image(model_ft, pred_image_path, device, class_labels)
         exit()
 
-
     # ## params
 
     # Loss function
     criterion = nn.CrossEntropyLoss()
 
-    # Optimizer 
-    # optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9)
+    # Optimizer
+
     optimizer_ft = optim.AdamW(model_ft.parameters(), betas=betas)
+
     # Learning rate decay
     exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer_ft, step_size=step_size, gamma=gamma)
 
-
-    # ## find best params for model
-
-
-    # Optimizer 
+    # Optimizer
     optimizer_ft = optim.AdamW(model_ft.parameters(), lr=learn_rate, betas=betas)
+
     # Learning rate decay
     exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer_ft, step_size=step_size, gamma=gamma)
-
 
     # # Train
-
-
-    # ## fit/train
-          
 
     if retrain:
         # Train the model
         model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler,
-                        dataloaders, dataset_sizes, device, num_epochs=num_epochs)
-    else:
-        # Load weights
-        model_ft.load_state_dict(torch.load('best_weights.pth'))
-
+                               dataloaders, dataset_sizes, device, num_epochs=num_epochs)
 
     # ## save weights
 
@@ -596,82 +679,30 @@ if __name__ == "__main__":
 
     # # Evaluation
 
-
     if eveluate:
-        evaluate_model_with_limited_misclassified(model_ft, dataloaders['test'], criterion, device, list(dataset.get_classes_names().values()))
-
-
+        evaluate_model_with_limited_misclassified(model_ft, dataloaders['test'], criterion, device,
+                                                  list(dataset.get_classes_names().values()))
 
     # # Continual Learning - Add new classes
 
     # ## prepare new datasets and dataloaders
 
     if add_classes_dir:
-
         new_data_dir = add_classes_dir
-        # Create a new dataset with data for the new class
-        new_class_dataset = CustomDataset(new_data_dir, transform=transform, start_inx=len(dataset.main_classes_set.keys()))
-        print(f'{len(new_class_dataset)} samples in the new dataset')
-
-        own_concat_dataset = copy.copy(dataset)
-        num_new_classes = own_concat_dataset.concat_datasets(new_class_dataset)
-        print(f'{num_new_classes} new classes added to the dataset')
-
-        total_size = len(own_concat_dataset)
-        train_size = int(0.7 * total_size)
-        val_size = int(0.15 * total_size)
-        test_size = total_size - train_size - val_size
-
-        own_concat_train_data, own_concat_val_data, own_concat_test_data = random_split(own_concat_dataset, [train_size, val_size, test_size])
-        own_concat_dataset_ds = {'train': own_concat_train_data, 'valid': own_concat_val_data, 'test': own_concat_test_data}
-        own_concat_class_dls = {key: DataLoader(own_concat_dataset_ds[key], batch_size=batch_size, shuffle=True) for key in own_concat_dataset_ds.keys()}
-        own_concat_class_dataset_sizes = {
-            'train': len(own_concat_dataset_ds['train']),
-            'valid': len(own_concat_dataset_ds['valid'])
-        }
-
-
-        # ## new model
-
-        new_model = copy.deepcopy(model_ft)
-        if 'classifier' in new_model._modules:
-            # Modify the classifier layers for models like VGG
-            num_ftrs = new_model.classifier[-1].in_features
-            new_model.classifier[-1] = nn.Linear(num_ftrs, new_model.classifier[-1].out_features+num_new_classes)
-        elif 'fc' in new_model._modules:
-            # Modify the fully connected layer for models like AlexNet
-            num_ftrs = new_model.fc.in_features
-            new_model.fc = nn.Linear(num_ftrs, model_ft.fc.out_features+num_new_classes)
-
-        new_model.to(device)
-
-
-        first_layers_params = []
-        final_layer_params = []
-
-        for name, param in new_model.named_parameters():
-            if 'fc' not in name:
-                first_layers_params.append(param)
-            else:
-                final_layer_params.append(param)
-            
-        # Create separate parameter groups with different learning rates
-        param_groups = [
-            {'params': first_layers_params, 'lr': 0},
-            {'params': final_layer_params, 'lr': learning_rate_final_layer}
-        ]
-
-        add_class_optimizer = optim.AdamW(param_groups, lr=0.001, weight_decay=0.01)
-
-
-
-        own_concat_dataset_model = train_model(new_model, criterion, add_class_optimizer, exp_lr_scheduler, own_concat_class_dls, own_concat_class_dataset_sizes, device, num_epochs=num_epochs)
-
+        new_model, own_concat_dls, own_concat_dataset = add_new_classes_to_pretrained_model(dataset,
+                                                                                            model_ft,
+                                                                                            new_data_dir,
+                                                                                            criterion,
+                                                                                            transform,
+                                                                                            exp_lr_scheduler,
+                                                                                            learning_rate_first_layers,
+                                                                                            learning_rate_final_layer,
+                                                                                            num_epochs)
         if save_weights:
             classes_dict = own_concat_dataset.get_classes_names()
-            save_model(model_name+'_after_add_class', model_name, own_concat_dataset_model.state_dict(), classes_dict)
-            save_layers_except_last(own_concat_dataset_model, model_name)
+            save_model(model_name + '_after_add_class', model_name, new_model.state_dict(), classes_dict)
+            save_layers_except_last(new_model, model_name)
 
         if eveluate:
-            evaluate_model_with_limited_misclassified(own_concat_dataset_model, own_concat_class_dls['test'], criterion, device, list(own_concat_dataset.get_classes_names().values()))
-# %%
+            evaluate_model_with_limited_misclassified(own_concat_dataset_model, own_concat_dls['test'], criterion,
+                                                      device, list(own_concat_dataset.get_classes_names().values()))
