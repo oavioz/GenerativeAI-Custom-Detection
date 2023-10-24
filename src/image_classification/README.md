@@ -84,10 +84,10 @@ The script supports the following models:
 To train a model, specify the following parameters:
 - `retrain`: True to start training from scratch, False to load a pre-trained model.
 - `num_epochs`: The number of training epochs.
-- `DATA_DIR_PATH`: The path to the dataset.
-- `model_name`: The name of the model to use.
+- `datadir`: The path to the dataset.
+- `model`: The name of the model to use.
 - `save_weights`: True to save model weights after training.
-- `pred_image_path`: Path to an image for single image prediction.
+- `predict`: Path to an image for single image prediction.
 - `eveluate`: True to perform model evaluation.
 - `add_class_dir`: Path to a directory containing new classes to add to the dataset.
 
