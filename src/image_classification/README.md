@@ -1,4 +1,4 @@
-# Continual Learning and Evaluation with PyTorch
+# Image classification - Continual Learning and Evaluation with PyTorch
 
 This repository contains a PyTorch implementation for a continual learning and evaluation pipeline. The code includes training a neural network model, evaluating it, and adding new classes to the dataset. Below is an overview of the key components and their functionalities:
 
@@ -6,7 +6,7 @@ This repository contains a PyTorch implementation for a continual learning and e
 
 ### 1. Data Preparation
 
-The data is loaded and preprocessed using PyTorch's `ImageFolder` and `transforms`. Data augmentation techniques like random horizontal flip, random rotation, and color jitter are applied to improve model performance.
+The data is loaded and preprocessed. Data augmentation techniques like random horizontal flip, random rotation, and color jitter are applied to improve model performance.
 
 ### 2. Model Selection
 
@@ -83,41 +83,48 @@ The script supports the following models:
 
 To train a model, specify the following parameters:
 - `retrain`: True to start training from scratch, False to load a pre-trained model.
-- `num_epochs`: The number of training epochs.
 - `datadir`: The path to the dataset.
 - `model`: The name of the model to use.
-- `save_weights`: True to save model weights after training.
-- `predict`: Path to an image for single image prediction.
-- `eveluate`: True to perform model evaluation.
-- `add_class_dir`: Path to a directory containing new classes to add to the dataset.
+- `num_epochs`: The number of training epochs. (optional)
+- `save_weights`: True to save model weights after training. (optional)
+- `eveluate`: True to perform model evaluation. (optional)
+- `load_model`: Path to a pre-trained model to use as the starting point. (optional)
 
 ```bash
 example:
-python repair_classifier.py --retrain True --num_epochs 4 --datadir ./dataset --model resnet18 --save_weights True
+python classifier.py --retrain True --num_epochs 50 --datadir ./dataset --model alexnet --save_weights True
 ```
 
 ### Single Image Prediction
 
-To make predictions on a single image, you should provide the following parameter:
+To make predictions on a single image, specify the following parameters:
 
-- `pred_image_path`: The file path to the image you wish to predict.
+- `predict`: Path to an image for single image prediction.
+- `load_model`: Path to a pre-trained model to use as the starting point.
 
 **Important: Ensure that the model and its associated weights are saved before making predictions.**
 
 ```bash
 example:
-python repair_classifier.py --load_model ./resnet18.pth --predict ./dataset3/Sunflower/Sunflower_Downy_mildew/downymildew\(100\).jpeg
+python classifier.py --predict ./add_classes/Sunflower_Downymildew/downymildew\(111\).jpeg --load_model ./models/alexnet/alexnet_after_add_class.pth
 ```
 
 
 ### Continual Learning
 
-To add new classes to the dataset and extend the model:
-- Set `add_class_dir` to the path of the directory containing the new classes.
+To add new classes to the dataset and extend the model, , specify the following parameters:
+- `add_class_dir`: Path to a directory containing new classes to add to the dataset.
+- `datadir`: The path to dataset with pretrained classes.
+- `load_model`: Path to a pre-trained model to use as the starting point.
+- `retrain`: True to start training from scratch, False to load a pre-trained model. (optional)
+- `num_epochs`: The number of training epochs. (optional)
+- `save_weights`: True to save model weights after training. (optional)
+- `eveluate`: True to perform model evaluation. (optional)
+
 - The code will automatically load the new data, extend the dataset, and train a model that includes the new classes.
 ```bash
 example:
-python repair_classifier.py --add_classes_dir ./dataset3 --datadir ./dataset --load_model ./resnet18.pth --num_epochs 1 --save_weights True
+python python classifier.py --add_classes_dir ./add_classes --datadir ./dataset --load_model ./models/alexnet/alexnet.pth --num_epochs 50 --save_weights True
 ```
 
 ## Contributing
