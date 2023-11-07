@@ -1,10 +1,9 @@
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, random_split, Subset
-from torchvision import models, transforms
+from torch.utils.data import Dataset, DataLoader, random_split
 import torch.nn.functional as F
+from torchvision import models, transforms
 import os
 import time
 import copy
@@ -12,25 +11,23 @@ from PIL import Image
 import cv2
 import numpy as np
 from tqdm import tqdm
-import random
 from pathlib import Path
 import matplotlib.pyplot as plt
-from torch.utils.data import ConcatDataset
 import pandas as pd
-from sklearn.metrics import confusion_matrix, average_precision_score, precision_recall_curve, precision_score, \
-    recall_score, accuracy_score
+from sklearn.metrics import confusion_matrix, precision_score, recall_score
 import seaborn as sns
 import argparse
+import requests
+from io import BytesIO
+import base64
 
 # # specifics
 
-batch_size = 64
-learn_rate = 0.0002
+batch_size = 128
 betas = (0.99, 0.999)
-num_epochs = 50
+num_epochs = 45
 step_size = 7
 gamma = 0.1
-eveluate = True
 
 # after adding classes
 learning_rate_first_layers = 0.001
@@ -64,15 +61,12 @@ def create_model_instance(model_name, num_classes):
 
         model = modify_num_of_classes(model, num_classes)
 
-        print(f'#######################{type(model)=}')
-
         return model
 
 
 def all_models():
     my_models = {key: create_model_instance(key) for key in model_dict.keys()}
     for model_name, model in my_models.items():
-        print(f"###### Model: {model_name}")
         if 'classifier' in model._modules:
             # Modify the classifier layers for models like VGG
             num_ftrs = model.classifier[-1].in_features
@@ -104,43 +98,46 @@ def rename_file(root, filename):
     return filename
 
 
-def create_dataset_from_directory(root_directory):
-    main_classes = []
-    samples = []
-    main_classes_dict = {}
-
-    for root, dirs, files in os.walk(root_directory):
-        for filename in files:
-            filename = rename_file(root, filename)
-
-            relative_path = root.split(os.path.sep)
-            main = str(relative_path[-1])  # str(relative_path[-2]) + "_" + str(relative_path[-1])
-            if main not in main_classes_dict.keys():
-                main_classes_dict[main] = len(main_classes_dict.keys())
-
-            main_classes.append(main_classes_dict[main])
-            if root is not None and filename is not None:
-                samples.append(os.path.join(root, filename))
-            else:
-                print(f"{root} or {filename} is None")
-
-    return torch.tensor(main_classes), samples, main_classes_dict
-
+def get_image_from_url_or_path_or_base64(image_path_or_url_or_base64):
+    if image_path_or_url_or_base64.startswith('http://') or image_path_or_url_or_base64.startswith('https://'):
+        # It's a URL, download the image
+        response = requests.get(image_path_or_url_or_base64)
+        if response.status_code != 200:
+            print(f"Failed to download image from URL: {image_path_or_url_or_base64}")
+            return None
+        image_data = response.content
+    elif os.path.isfile(image_path_or_url_or_base64):
+        # It's a local file, read the image
+        with open(image_path_or_url_or_base64, 'rb') as f:
+            image_data = f.read()
+    else:
+        # It's base64-encoded data
+        try:
+            image_data = base64.b64decode(image_path_or_url_or_base64)
+        except Exception as e:
+            print("Failed to decode base64 image data.")
+            return None
+    
+    image = Image.open(BytesIO(image_data))
+    return image
 
 # Define custom PyTorch dataset
 class CustomDataset(Dataset):
     def __init__(self, data_dir, transform=None, start_inx=0):
-        self.main_class_labels, self.image_paths, self.main_classes_set = create_dataset_from_directory(data_dir)
+        self.main_class_labels, self.image_paths, self.main_classes_set = self.create_dataset_from_directory(data_dir)
         self.transform = transform
         if start_inx > 0:
             self.main_class_labels += start_inx
             self.main_classes_set = {key: value + start_inx for key, value in self.main_classes_set.items()}
+
+        self.sort_classes()
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
         image = cv2.imread(self.image_paths[idx])
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert to RGB format
         main_class = self.main_class_labels[idx]
 
         if self.transform:
@@ -156,16 +153,47 @@ class CustomDataset(Dataset):
         self.main_class_labels = torch.cat((self.main_class_labels, new_dataset.main_class_labels))
         self.image_paths = self.image_paths + new_dataset.image_paths
         old_num_classes = len(self.main_classes_set.keys())
-        num_new_classes = 0
         for key, val in new_dataset.main_classes_set.items():
             if key not in self.main_classes_set.keys():
-                print(f"Adding {key} with {val} to the dataset")
+                print(f"Adding {key} to dataset")
                 self.main_classes_set[key] = val
-                num_new_classes += 1
             else:
-                print(f"Skipping {key} with {val} because it already exists")
+                print(f"Skipping {key} because it already exists")
+        
+        self.sort_classes()
+
+        num_new_classes = len(self.main_classes_set.keys()) - old_num_classes
 
         return num_new_classes
+    
+    def sort_classes(self):
+        self.main_classes_set = dict(sorted(self.main_classes_set.items(), key=lambda x: x[0]))
+        class_mapping = {old_class: new_index for new_index, (old_class, _) in enumerate(self.main_classes_set.items())}
+        
+        # Update main_class_labels with mapped labels, if the label exists in class_mapping
+        self.main_class_labels = torch.tensor([class_mapping.get(label, label) for label in self.main_class_labels])
+    
+    def create_dataset_from_directory(self, root_directory):
+        main_classes = []
+        samples = []
+        main_classes_dict = {}
+
+        for root, dirs, files in os.walk(root_directory):
+            for filename in files:
+                filename = rename_file(root, filename)
+
+                relative_path = root.split(os.path.sep)
+                main = str(relative_path[-1]) 
+                if main not in main_classes_dict.keys():
+                    main_classes_dict[main] = len(main_classes_dict.keys())
+
+                main_classes.append(main_classes_dict[main])
+                if root is not None and filename is not None:
+                    samples.append(os.path.join(root, filename))
+                else:
+                    print(f"{root} or {filename} is None")
+
+        return torch.tensor(main_classes), samples, main_classes_dict
 
 
 def train_model(model_name, model, criterion, optimizer, scheduler, dataloaders, dataset_sizes, device, num_epochs):
@@ -272,7 +300,7 @@ def train_model(model_name, model, criterion, optimizer, scheduler, dataloaders,
 
     file_path_to_save = os.path.join(dir_path_to_save, f'{model_name}_training_history.png')
     print(f'Saving {model_name}_training_history.png')
-    plt.savefig(file_path_to_save)
+    # plt.savefig(file_path_to_save)
     print('saved')
 
     # load best model weights
@@ -434,10 +462,14 @@ def evaluate_model_with_limited_misclassified(model, dataloader, criterion, devi
     plt.show()
 
 
-def predict_single_image(model, image_path, device, classes_names):
+def predict_single_image(model, image_path_or_url_or_base64, device, class_names):
+    image = get_image_from_url_or_path_or_base64(image_path_or_url_or_base64)
+    
+    if image is None:
+        return '', 0
+    
     model.eval()
 
-    # Load the image and apply the same transformations as in your dataloader
     transform = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
@@ -445,22 +477,21 @@ def predict_single_image(model, image_path, device, classes_names):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    image = Image.open(image_path)
+
     image = transform(image).unsqueeze(0).to(device)  # Add batch dimension
 
     confidence = 0
     label = ''
     with torch.no_grad():
         output = model(image)
-        probabilities = torch.nn.functional.softmax(output, dim=1)
+        probabilities = F.softmax(output, dim=1)
         _, prediction = torch.max(output, 1)
         confidence = probabilities.max(dim=1)[0].item()
-        label = classes_names[prediction.item()]
+        label = class_names[prediction.item()]
 
     print(f"Predicted Label: {label}, Confidence: {confidence}")
 
     return label, confidence
-
 
 def modify_num_of_classes(new_model, num_new_classes, old_model=None):
     num_classes = num_new_classes
@@ -493,7 +524,7 @@ def add_new_classes_to_pretrained_model(model_name, old_dataset, old_model, new_
                                       start_inx=len(old_dataset.main_classes_set.keys()))
     print(f'{len(new_class_dataset)} samples in the new dataset')
 
-    own_concat_dataset = copy.copy(old_dataset)
+    own_concat_dataset = copy.deepcopy(old_dataset)
     num_new_classes = own_concat_dataset.concat_datasets(new_class_dataset)
     print(f'{num_new_classes} new classes added to the dataset')
 
@@ -577,7 +608,7 @@ if __name__ == "__main__":
 
     # ## prepare labels
 
-    if (retrain or add_classes_dir) and not DATA_DIR_PATH:
+    if (retrain or add_classes_dir or eveluate) and not DATA_DIR_PATH:
         print("Please provide a data directory")
         exit()
 
@@ -585,14 +616,22 @@ if __name__ == "__main__":
 
     if DATA_DIR_PATH:
         # Define data transformations including data augmentation
+        # transform = transforms.Compose([
+        #     transforms.ToPILImage(),
+        #     transforms.RandomHorizontalFlip(),
+        #     transforms.RandomRotation(10),
+        #     transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
+        #     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        #     transforms.ToTensor(),
+        #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # ])
+
         transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(10),
-            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.ToPILImage(),
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
         # Create the custom dataset
@@ -618,6 +657,9 @@ if __name__ == "__main__":
     # # Model
 
     # ## chose model
+    num_classes = None
+    model_state_dict = None
+    class_labels = None
 
     if load_model:
         checkpoint = torch.load(load_model)
@@ -627,6 +669,7 @@ if __name__ == "__main__":
         class_labels = checkpoint['class_labels']
     elif DATA_DIR_PATH:
         num_classes = len(dataset.main_classes_set.keys())
+        class_labels = dataset.get_classes_names()
     else:
         print("Please provide a data directory or a model to load")
 
@@ -648,7 +691,7 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
 
     # Optimizer
-    optimizer_ft = optim.AdamW(model_ft.parameters(), lr=learn_rate, betas=betas)
+    optimizer_ft = optim.AdamW(model_ft.parameters(), betas=betas)
 
     # Learning rate decay
     exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer_ft, step_size=step_size, gamma=gamma)
@@ -663,15 +706,13 @@ if __name__ == "__main__":
     # ## save weights
 
     if save_weights:
-        classes_dict = dataset.get_classes_names()
-        save_model(model_name, model_name, model_ft.state_dict(), classes_dict)
-        # save_layers_except_last(model_ft, model_name)
+        save_model(f'{model_name}', model_name, model_ft.state_dict(), class_labels)
 
     # # Evaluation
 
     if eveluate:
         evaluate_model_with_limited_misclassified(model_ft, dataloaders['test'], criterion, device,
-                                                  list(dataset.get_classes_names().values()))
+                                                  list(class_labels.values()))
 
     # # Continual Learning - Add new classes
 
@@ -690,11 +731,9 @@ if __name__ == "__main__":
                                                                                                       learning_rate_final_layer,
                                                                                                       num_epochs)
         if save_weights:
-            classes_dict = new_dataset.get_classes_names()
-            save_model(model_name + '_after_add_class', model_name, new_model.state_dict(),
+            save_model(f'{model_name}_new', model_name, new_model.state_dict(),
                        new_dataset.get_classes_names())
-            # save_layers_except_last(new_model, model_name)
-
+            
         if eveluate:
             evaluate_model_with_limited_misclassified(new_model, own_concat_dls['test'], criterion, device,
                                                       list(new_dataset.get_classes_names().values()))
