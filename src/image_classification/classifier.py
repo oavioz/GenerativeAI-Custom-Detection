@@ -119,6 +119,10 @@ def get_image_from_url_or_path_or_base64(image_path_or_url_or_base64):
             return None
     
     image = Image.open(BytesIO(image_data))
+
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+        
     return image
 
 # Define custom PyTorch dataset
