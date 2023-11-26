@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 from datetime import datetime
 
 import pandas as pd
@@ -32,6 +33,7 @@ gr_training = parser.add_mutually_exclusive_group()
 gr_training.add_argument("-i", "--epochs", type=int, help="Train the model for a final number of epochs")
 gr_training.add_argument("--r2", type=float_in_range(0, 1), help="Train the model until r2 more than argument")
 gr_training.add_argument("--mse", type=float_in_range(0, 1), help="Train the model until MSE lower than argument")
+gr_training.add_argument("--no-model", help="Just create the normalisation dictionary")
 gr_time = parser.add_argument_group()
 gr_time.add_argument("--epochstart", type=str, help="First possible date (in data) [yyyy-mm-dd]",
                      default="2000-01-01"),
@@ -51,32 +53,31 @@ norm_dict = {}
 print("""Normalisation types:
 1 - Categories
 2 - Timestamp
-3 - Scale
-4 - Boolean (True/False)
-5 - Drop column""")
+3 - Percentage
+4 - Scale
+5 - Boolean (True/False)
+6 - Drop column""")
 
 for c in data.columns:
     print(f"Select normalisation for column {c}:")
     norm = input()
 
-    while not ('1' <= norm <= '5'):
+    while not ('1' <= norm <= '6'):
         print("Invalid input")
         norm = input()
-
 
     def serialise(norm, column):
         if norm == '1':
             return list(column.dropna().unique())
-        if norm == '2':
-            return None
         if norm == '4':
-            return None
-        if norm == '3':
             amplitude = column.max() - column.min()
-            return float(column.min() - amplitude / 10), float(column.max() + amplitude * 10)
+            return (float(column.min() - (0 if column.min() == 0 else amplitude / 10)),
+                    float(column.max() + amplitude / 10))
+        if norm in ('2', '3', '5'):
+            return None
 
 
-    if norm != '5':
+    if norm != '6':
         norm_dict[c] = {'type': norm, 'data': serialise(norm, data[c])}
 
     if norm == '1':
@@ -85,11 +86,14 @@ for c in data.columns:
         data[c] = pd.to_datetime(data[c], format='mixed')
         data[c] = (data[c] - pd.Timestamp(args.epochstart)).dt.days / (args.epochend - args.epochstart).days
     elif norm == '3':
-        amplitude = data[c].max() - data[c].min()
-        data[c] = (data[c] - (data[c].min() - amplitude / 10)) / (amplitude * 1.2)
+        data[c] = data[c] / 100 if data[c].max() > 1 else data[c]
     elif norm == '4':
-        data[c] = data[c].astype(float)
+        amplitude = data[c].max() - data[c].min()
+        data[c] = ((data[c] - (data[c].min() - (0 if data[c].min() == 0 else amplitude / 10))) /
+                   (amplitude * (1.1 if data[c].min() == 0 else 1.2)))
     elif norm == '5':
+        data[c] = data[c].astype(float)
+    elif norm == '6':
         data = data.drop(columns=[c])
 
 y_column = input("Enter output column name: ")
@@ -97,10 +101,13 @@ while y_column not in data.columns:
     print("Doesn't exist")
     y_column = input("Enter output column name: ")
 
-norm_dict = {'time': (args.epochstart.timestamp(), args.epochend.timestamp()), 'columns': norm_dict, 'output': y_column}
+norm_dict = {'version': 2, 'time': (args.epochstart.timestamp(), args.epochend.timestamp()), 'columns': norm_dict, 'output': y_column}
 with open(args.dict, mode='w') as file:
     json.dump(norm_dict, file)
     print(f"Saved normalisation dictionary in {file.name}")
+
+if args.no_model:
+    sys.exit(0)
 
 data = data.fillna(float(0))
 
@@ -120,8 +127,8 @@ print(f"Device selected: {device}")
 # Create custom dataset object
 class MyDataset(Dataset):
     def __init__(self, x_df, y_df):
-        self.X = torch.tensor(x_df.to_numpy(dtype=float)).to(device)
-        self.y = torch.tensor(y_df.to_numpy(dtype=float)).to(device)
+        self.X = torch.tensor(x_df.to_numpy(), dtype=torch.float64).to(device)
+        self.y = torch.tensor(y_df.to_numpy(), dtype=torch.float64).to(device)
 
     def __len__(self):
         return len(self.X)
@@ -147,9 +154,9 @@ class MLPRegressor(nn.Module):
     def __init__(self):
         super().__init__()
         self.linear_stack = nn.Sequential(
-            nn.Linear(input_width, 80, dtype=float),
+            nn.Linear(input_width, 80, dtype=torch.float64),
             nn.ReLU(),
-            nn.Linear(80, 1, dtype=float)
+            nn.Linear(80, 1, dtype=torch.float64)
         )
 
     def forward(self, x):
